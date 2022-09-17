@@ -4,8 +4,7 @@ looper-semaphore() {
     [[ 1 -eq  1 ]]
 }
 
-do-looper() {
-    # TODO: This is a test function.  You can discard it.
-    looper.sh
+loop() {
+    looper.sh "$@"
 }
 
