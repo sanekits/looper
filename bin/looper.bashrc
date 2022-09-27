@@ -5,7 +5,7 @@ looper-semaphore() {
 }
 
 loop() {
-    type -t loop_cmd &>/dev/null && {
+    [[ $(type -t loop_cmd) == function ]] || {
         sourceMe=1 source "$(command which looper.sh)"
     }
     loop_cmd "$@"
