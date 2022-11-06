@@ -34,7 +34,7 @@ if [ ${1} ]; then
   *)
     echo "unknown option: \"${1}\""
     echo "usage: vipe [-hV]"
-    exit 1 
+    exit 1
   esac
 fi
 
@@ -50,6 +50,8 @@ if [ ! -t 0 ]; then
 fi
 
 # spawn editor with stdio connected
+
+[ -n "$EDITOR" ] || export EDITOR=vi
 
 ${EDITOR} $t < /dev/tty > /dev/tty || exit $?
 
