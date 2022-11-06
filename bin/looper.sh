@@ -51,7 +51,6 @@ stub() {
 }
 
 function loop_edit {
-    [[ -n $EDITOR ]] || export EDITOR=vi
     if which vipe.sh &>/dev/null; then
         echo "$@" | vipe.sh
     else
