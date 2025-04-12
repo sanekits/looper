@@ -85,24 +85,39 @@ loop_print_help() {
     echo
 }
 
+loop_list_saved_cmds() {
+    if [[ ! -d $loopcmd_configdir ]]; then
+        echo -e "${loop_color_red}No saved commands found. Directory ${loopcmd_configdir} does not exist.${loop_color_none}" >&2
+        return 1
+    fi
+
+    echo -e "${loop_color_green}Saved Commands:${loop_color_none}"
+    for file in "$loopcmd_configdir"/*; do
+        [[ -f $file ]] || continue
+        cmd_name=$(basename "$file")
+        echo -e "${loop_color_yellow}${cmd_name}:${loop_color_none}"
+        sed 's/^/  /' "$file" # Indent each line of the command
+        echo
+    done
+    echo "Run 'loop --rerun <command name>' to launch one of these commands"
+}
 
 function loop_cmd {
     loop_autorepeat_secs=0
-    
 
-    if [[ $1 == --help ]]; then
-        loop_print_help; return
-    elif [[ $1 == --rerun ]]; then
+    [[ $# == 0 ]] && { loop_print_help; return ; }
+    case  $1 in 
+        -h|--help) loop_print_help; return;;
+        -l|--list) shift; loop_list_saved_cmds; return ;;
+        -a|--auto) shift; loop_autorepeat_secs=2;;
+    esac
+    if [[ $1 == --rerun ]]; then
         # Re-run a named command from ~/.config/loop_cmd.d:
         shift
         loop_cmd_name=$1
         [[ -f $loopcmd_configdir/${loop_cmd_name} ]] || ( die "cant find ${loopcmd_configdir}/${loop_cmd_name}") || return
         vloop_cmd="$(cat "$loopcmd_configdir/${loop_cmd_name}")"
         shift
-    elif [[ $1 == --auto ]]; then
-        # Turn on loop_autorepeat_secs immediately
-        shift
-        loop_autorepeat_secs=2
      elif [[ $1 == "-" ]]; then
          shift
          [[ $# -gt 0 ]] && echo "Args for command: [$*]" >&2
