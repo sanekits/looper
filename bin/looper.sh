@@ -22,11 +22,10 @@ canonpath() {
         return
     }
     # Fallback: Ok for rough work only, does not handle some corner cases:
-    ( builtin cd -L -- "$(command dirname -- $0)"; builtin echo "$(command pwd -P)/$(command basename -- $0)" )
+    ( builtin cd -L -- "$(command dirname -- "$0")" || exit; builtin echo "$(command pwd -P)/$(command basename -- "$0")" )
 }
 
 scriptName="$(canonpath "$0")"
-scriptDir=$(command dirname -- "${scriptName}")
 
 color_red="\033[;31m"
 color_green="\033[;32m"
@@ -35,20 +34,10 @@ color_none="\033[;0m"
 loopcmd_configdir=$HOME/.config/loop_cmd.d
 
 die() {
-    builtin echo "ERROR($(command basename -- ${scriptName})): $*" >&2
+    builtin echo "ERROR($(command basename -- "${scriptName}")): $*" >&2
     builtin exit 1
 }
 
-stub() {
-    # Print debug output to stderr.  Call like this:
-    #   stub "${FUNCNAME[0]}.${LINENO}" "$@" "<Put your message here>"
-    #
-    builtin echo -n "  <<< STUB" >&2
-    for arg in "$@"; do
-        echo -n "[${arg}] " >&2
-    done
-    echo " >>> " >&2
-}
 
 function loop_edit {
     if which vipe.sh &>/dev/null; then
@@ -56,49 +45,48 @@ function loop_edit {
     else
         echo >&2
         echo -e "${color_red}  --> Sorry, vipe.sh not available.  Ctrl+D to end edit.${color_none}" >&2
-        echo -e "${color_yellow}  --> Command is: [${color_green}$@${color_yellow}]" >&2
+        echo -e "${color_yellow}  --> Command is: [${color_green}$*${color_yellow}]" >&2
         cat
     fi
 }
 
 function loop_show {
-    echo -e "${color_green}Command is: [${color_none}${cmd} $@${color_green}]"
+    echo -e "${color_green}Command is: [${color_none}${cmd} $*${color_green}]"
     echo -e "Named as: ${color_none}${cmd_name}"
 }
 
 function update_loopcmd_name {
-    mkdir -p ${loopcmd_configdir}
+    mkdir -p "${loopcmd_configdir}"
     echo -ne "${color_green}
   --> Assign a name to this command: ${color_none}" >&2
-    read -e -i "$1"
+    read -re -i "$1"
     if [[ -z $REPLY ]]; then
         return 1
     fi
-    echo "$cmd" > ${loopcmd_configdir}/$REPLY
+    echo "$cmd" > "${loopcmd_configdir}/$REPLY"
     echo -e "  ${color_green}--> (Command was saved as ${color_none}$loopcmd_configdir/$REPLY${color_green})" >&2
     echo "$REPLY"
 }
 
 
 function loop_cmd {
-    autorepeat=false
-    read_timeout=0
-    local loop_args=
+    autorepeat_secs=0
+    
+
     if [[ $1 == --rerun ]]; then
         # Re-run a named command from ~/.config/loop_cmd.d:
         shift
         cmd_name=$1
-        [[ -f $loopcmd_configdir/${cmd_name} ]] || return $(die cant find ${loopcmd_configdir}/${cmd_name})
-        cmd="$(cat $loopcmd_configdir/${cmd_name})"
+        [[ -f $loopcmd_configdir/${cmd_name} ]] || ( die "cant find ${loopcmd_configdir}/${cmd_name}") || return
+        cmd="$(cat "$loopcmd_configdir/${cmd_name}")"
         shift
     elif [[ $1 == --auto ]]; then
-        # Turn on autorepeat immediately
+        # Turn on autorepeat_secs immediately
         shift
-        autorepeat=true
-        read_timeout=0.5
+        autorepeat_secs=3
      elif [[ $1 == "-" ]]; then
          shift
-         [[ $# -gt 0 ]] && echo "Args for command: [$@]" >&2
+         [[ $# -gt 0 ]] && echo "Args for command: [$*]" >&2
          [[ -t 0 ]] && echo "Enter command(s) , then ^D to execute:" >&2
          cmd="$(cat)"
      else
@@ -112,28 +100,22 @@ function loop_cmd {
     fi
     nloop=1
     while true; do
-        eval "$cmd $@"
+        eval "$cmd $*"
         res=$?
         if (( res == 0 )); then
             echo -e "${color_yellow}<<-- loop_cmd[${nloop}]: ${color_green}OK${color_none}"
         else
             echo -e "${color_yellow}<<-- loop_cmd[${nloop}]: ${color_red}FAIL: $res
-    ${color_yellow}Command was: [${color_none}$cmd $@${color_yellow}]"
+    ${color_yellow}Command was: [${color_none}$cmd $*${color_yellow}]"
         fi
 
         while true; do
             echo -ne "${color_yellow}[A]gain, auto[R]epeat, [E]dit, [S]how, [N]ame+save, s[H]ell or [Q]uit:${color_none}"
 
             unset REPLY
-            if $autorepeat; then
-                read_timeout=0.5
-            else
-                read_timeout=0
-            fi
 
-
-            TMOUT=$read_timeout
-            read -n 1  </dev/tty
+            TMOUT=$autorepeat_secs
+            read -rn 1  </dev/tty
             TMOUT=0
             case $REPLY in
                 q|Q)
@@ -144,11 +126,11 @@ function loop_cmd {
                     break;
                     ;;
                 r|R)
-                    if $autorepeat; then
-                        autorepeat=false
+                    if (( autorepeat_secs > 0 )) ; then
+                        autorepeat_secs=0
                         printf "\nAuto-repeat OFF\n"
                     else
-                        autorepeat=true
+                        autorepeat_secs=3
                         printf "\nAuto-repeat ON, hit R to disable\n"
                     fi
                     break;
@@ -165,7 +147,7 @@ function loop_cmd {
                     ;;
                 h|H)
                     echo
-                    echo -e "${color_yello}Entering subshell, type exit to return to repl:${color_none}"
+                    echo -e "${color_yellow}Entering subshell, type exit to return to repl:${color_none}"
                     Ps1Tail=loop $SHELL
                     echo ""
                     continue
@@ -177,7 +159,7 @@ function loop_cmd {
                     ;;
 
                 *)
-                    if $autorepeat; then
+                    if (( autorepeat_secs > 0 )); then
                         echo ""
                         break
                     fi
@@ -186,7 +168,7 @@ function loop_cmd {
             esac
         done
 
-    (( nloop = $nloop + 1 ))
+    (( nloop++ ))
     done
 }
 

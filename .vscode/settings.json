@@ -27,5 +27,11 @@
         "activityBar.background": "#421960",
         "titleBar.activeBackground": "#5D2287",
         "titleBar.activeForeground": "#FBF9FD"
+    },
+    "github.copilot.enable": {
+        "*": false,
+        "plaintext": false,
+        "markdown": false,
+        "scminput": false
     }
 }
