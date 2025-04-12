@@ -5,7 +5,7 @@
 #
 #   e.g.:
 #
-#   $  looper.sh 'cmd arg1 arg2 | cmd2 arg3 arg4'   # Run cmd with its args over and over, prompting for restart each time.
+#   $  looper.sh 'cmd arg1 arg2 | cmd2 arg3 arg4'   # Run vloop_cmd with its args over and over, prompting for restart each time.
 #
 #  or...
 #
@@ -25,16 +25,16 @@ canonpath() {
     ( builtin cd -L -- "$(command dirname -- "$0")" || exit; builtin echo "$(command pwd -P)/$(command basename -- "$0")" )
 }
 
-scriptName="$(canonpath "$0")"
+loop_scriptName="$(canonpath "$0")"
 
-color_red="\033[;31m"
-color_green="\033[;32m"
-color_yellow="\033[;33m"
-color_none="\033[;0m"
+loop_color_red="\033[;31m"
+loop_color_green="\033[;32m"
+loop_color_yellow="\033[;33m"
+loop_color_none="\033[;0m"
 loopcmd_configdir=$HOME/.config/loop_cmd.d
 
-die() {
-    builtin echo "ERROR($(command basename -- "${scriptName}")): $*" >&2
+loop_die() {
+    builtin echo "ERROR($(command basename -- "${loop_scriptName}")): $*" >&2
     builtin exit 1
 }
 
@@ -44,77 +44,96 @@ function loop_edit {
         echo "$@" | vipe.sh
     else
         echo >&2
-        echo -e "${color_red}  --> Sorry, vipe.sh not available.  Ctrl+D to end edit.${color_none}" >&2
-        echo -e "${color_yellow}  --> Command is: [${color_green}$*${color_yellow}]" >&2
+        echo -e "${loop_color_red}  --> Sorry, vipe.sh not available.  Ctrl+D to end edit.${loop_color_none}" >&2
+        echo -e "${loop_color_yellow}  --> Command is: [${loop_color_green}$*${loop_color_yellow}]" >&2
         cat
     fi
 }
 
 function loop_show {
-    echo -e "${color_green}Command is: [${color_none}${cmd} $*${color_green}]"
-    echo -e "Named as: ${color_none}${cmd_name}"
+    echo -e "${loop_color_green}Command is: [${loop_color_none}${vloop_cmd} $*${loop_color_green}]"
+    echo -e "Named as: ${loop_color_none}${loop_cmd_name}"
 }
 
 function update_loopcmd_name {
     mkdir -p "${loopcmd_configdir}"
-    echo -ne "${color_green}
-  --> Assign a name to this command: ${color_none}" >&2
+    echo -ne "${loop_color_green}
+  --> Assign a name to this command: ${loop_color_none}" >&2
     read -re -i "$1"
     if [[ -z $REPLY ]]; then
         return 1
     fi
-    echo "$cmd" > "${loopcmd_configdir}/$REPLY"
-    echo -e "  ${color_green}--> (Command was saved as ${color_none}$loopcmd_configdir/$REPLY${color_green})" >&2
+    echo "$vloop_cmd" > "${loopcmd_configdir}/$REPLY"
+    echo -e "  ${loop_color_green}--> (Command was saved as ${loop_color_none}$loopcmd_configdir/$REPLY${loop_color_green})" >&2
     echo "$REPLY"
+}
+
+loop_print_help() {
+    echo -e "${loop_color_green}Usage:${loop_color_none}"
+    echo -e "  looper.sh [options] [command]"
+    echo
+    echo -e "${loop_color_yellow}Options:${loop_color_none}"
+    echo -e "  --rerun NAME Re-run a named command saved in ${loopcmd_configdir}."
+    echo -e "  --auto       Automatically repeat the command every 2 seconds."
+    echo -e "  -            Read the command from standard input."
+    echo
+    echo -e "${loop_color_yellow}Examples:${loop_color_none}"
+    echo -e "  looper.sh 'echo Hello World'   # Run the command in a loop."
+    echo -e "  looper.sh --rerun mycommand    # Re-run a previously saved command."
+    echo -e "  looper.sh --auto 'date'        # Automatically repeat the command every 2 seconds."
+    echo -e "  looper.sh -                    # Enter commands interactively."
+    echo
 }
 
 
 function loop_cmd {
-    autorepeat_secs=0
+    loop_autorepeat_secs=0
     
 
-    if [[ $1 == --rerun ]]; then
+    if [[ $1 == --help ]]; then
+        loop_print_help; return
+    elif [[ $1 == --rerun ]]; then
         # Re-run a named command from ~/.config/loop_cmd.d:
         shift
-        cmd_name=$1
-        [[ -f $loopcmd_configdir/${cmd_name} ]] || ( die "cant find ${loopcmd_configdir}/${cmd_name}") || return
-        cmd="$(cat "$loopcmd_configdir/${cmd_name}")"
+        loop_cmd_name=$1
+        [[ -f $loopcmd_configdir/${loop_cmd_name} ]] || ( die "cant find ${loopcmd_configdir}/${loop_cmd_name}") || return
+        vloop_cmd="$(cat "$loopcmd_configdir/${loop_cmd_name}")"
         shift
     elif [[ $1 == --auto ]]; then
-        # Turn on autorepeat_secs immediately
+        # Turn on loop_autorepeat_secs immediately
         shift
-        autorepeat_secs=3
+        loop_autorepeat_secs=2
      elif [[ $1 == "-" ]]; then
          shift
          [[ $# -gt 0 ]] && echo "Args for command: [$*]" >&2
          [[ -t 0 ]] && echo "Enter command(s) , then ^D to execute:" >&2
-         cmd="$(cat)"
+         vloop_cmd="$(cat)"
      else
         # First arg is command to run:
-        cmd=$1
+        vloop_cmd=$1
         shift
-        if [[ -z $cmd ]]; then
-            cmd="$(loop_edit '# Enter loop command. (You may delete this line if you wish)
+        if [[ -z $vloop_cmd ]]; then
+            vloop_cmd="$(loop_edit '# Enter loop command. (You may delete this line if you wish)
     ')"
         fi
     fi
     nloop=1
     while true; do
-        eval "$cmd $*"
-        res=$?
-        if (( res == 0 )); then
-            echo -e "${color_yellow}<<-- loop_cmd[${nloop}]: ${color_green}OK${color_none}"
+        eval "$vloop_cmd $*"
+        loop_res=$?
+        if (( loop_res == 0 )); then
+            echo -e "${loop_color_yellow}<<-- loop_cmd[${nloop}]: ${loop_color_green}OK${loop_color_none}"
         else
-            echo -e "${color_yellow}<<-- loop_cmd[${nloop}]: ${color_red}FAIL: $res
-    ${color_yellow}Command was: [${color_none}$cmd $*${color_yellow}]"
+            echo -e "${loop_color_yellow}<<-- loop_cmd[${nloop}]: ${loop_color_red}FAIL: $loop_res
+    ${loop_color_yellow}Command was: [${loop_color_none}$vloop_cmd $*${loop_color_yellow}]"
         fi
 
         while true; do
-            echo -ne "${color_yellow}[A]gain, auto[R]epeat, [E]dit, [S]how, [N]ame+save, s[H]ell or [Q]uit:${color_none}"
+            echo -ne "${loop_color_yellow}[A]gain, auto[R]epeat, [E]dit, [S]how, [N]ame+save, s[H]ell or [Q]uit:${loop_color_none}"
 
             unset REPLY
 
-            TMOUT=$autorepeat_secs
+            TMOUT=$loop_autorepeat_secs
             read -rn 1  </dev/tty
             TMOUT=0
             case $REPLY in
@@ -126,17 +145,17 @@ function loop_cmd {
                     break;
                     ;;
                 r|R)
-                    if (( autorepeat_secs > 0 )) ; then
-                        autorepeat_secs=0
+                    if (( loop_autorepeat_secs > 0 )) ; then
+                        loop_autorepeat_secs=0
                         printf "\nAuto-repeat OFF\n"
                     else
-                        autorepeat_secs=3
+                        loop_autorepeat_secs=2
                         printf "\nAuto-repeat ON, hit R to disable\n"
                     fi
                     break;
                     ;;
                 e|E)
-                    cmd=$(loop_edit "$cmd")
+                    vloop_cmd=$(loop_edit "$vloop_cmd")
                     echo ""
                     break
                     ;;
@@ -147,23 +166,23 @@ function loop_cmd {
                     ;;
                 h|H)
                     echo
-                    echo -e "${color_yellow}Entering subshell, type exit to return to repl:${color_none}"
+                    echo -e "${loop_color_yellow}Entering subshell, type exit to return to repl:${loop_color_none}"
                     Ps1Tail=loop $SHELL
                     echo ""
                     continue
                     ;;
                 n|N)
-                    cmd_name=$(update_loopcmd_name "$cmd_name")
+                    loop_cmd_name=$(update_loopcmd_name "$loop_cmd_name")
                     echo ""
                     continue
                     ;;
 
                 *)
-                    if (( autorepeat_secs > 0 )); then
+                    if (( loop_autorepeat_secs > 0 )); then
                         echo ""
                         break
                     fi
-                    echo -e "${color_red} -->> loop_cmd doesn't understand: $REPLY${color_none}"
+                    echo -e "${loop_color_red} -->> loop_cmd doesn't understand: $REPLY${loop_color_none}"
                     ;;
             esac
         done

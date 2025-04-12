@@ -1,3 +1,4 @@
+#!/bin/bash
 # looper.bashrc - shell init file for looper sourced from ~/.bashrc
 
 looper-semaphore() {
