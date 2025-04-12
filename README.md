@@ -1,5 +1,9 @@
 # looper
 
+A simple tool which runs commands repeatedly: automatically or on demand.  Commands can optionally be named and saved persistently.
+
+![](usage.png)
+
 ## Setup
 
 Download and install the self-extracting setup script:
