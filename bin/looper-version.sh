@@ -2,7 +2,7 @@
 
 # Running looper-version.sh is the correct way to
 # get the home install path for the tool
-KitVersion=0.3.1
+KitVersion=0.3.2
 
 canonpath() {
     builtin type -t realpath.sh &>/dev/null && {
