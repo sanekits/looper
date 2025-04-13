@@ -73,14 +73,17 @@ loop_print_help() {
     echo -e "  looper.sh [options] [command]"
     echo
     echo -e "${loop_color_yellow}Options:${loop_color_none}"
+    echo -e "  --help       Show this help message and exit."
     echo -e "  --rerun NAME Re-run a named command saved in ${loopcmd_configdir}."
     echo -e "  --auto       Automatically repeat the command every 2 seconds."
+    echo -e "  --list       List all saved commands with their names and details."
     echo -e "  -            Read the command from standard input."
     echo
     echo -e "${loop_color_yellow}Examples:${loop_color_none}"
     echo -e "  looper.sh 'echo Hello World'   # Run the command in a loop."
     echo -e "  looper.sh --rerun mycommand    # Re-run a previously saved command."
     echo -e "  looper.sh --auto 'date'        # Automatically repeat the command every 2 seconds."
+    echo -e "  looper.sh --list               # List all saved commands."
     echo -e "  looper.sh -                    # Enter commands interactively."
     echo
 }
